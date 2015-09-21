@@ -7,8 +7,8 @@
 
 , "version"         : "1.1.2"
 , "engines"         : {"node": ">=0.6.0"}
-, "main"            : "./node/faye-node"
-, "browserify"      : "./browser/faye-browser"
+, "main"            : "./build/node/faye-node"
+, "browserify"      : "./build/browser/faye-browser"
 
 , "dependencies"    : { "csprng": ""
                       , "faye-websocket": ">=0.9.1"
