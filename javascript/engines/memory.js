@@ -110,7 +110,15 @@ Faye.Engine.Memory.prototype = {
     clients.forEach(function(clientId) {
       this._server.debug('Queueing for client ?: ?', clientId, message);
       messages[clientId] = messages[clientId] || [];
-      messages[clientId].push(Faye.copyObject(message));
+
+      // if it is a service channel, strip the uid from the end of the channel before sending the message to the client
+      // /service/channel/uid => /service/channel
+      var messageToSend = Faye.copyObject(message);                      
+      if(Faye.Channel.isService(message.channel)) {                      
+        messageToSend.channel = message.channel.replace(/\/\w+$/, '');   
+      }                                                                  
+                                                                          
+      messages[clientId].push(Faye.copyObject(messageToSend));
       this.emptyQueue(clientId);
     }, this);
 
