@@ -67,7 +67,7 @@ Faye.extend(Faye.Channel, {
 
   isSubscribable: function(name) {
     if (!this.isValid(name)) return null;
-    return !this.isMeta(name) && !this.isService(name);
+    return !this.isMeta(name);
   },
 
   Set: Faye.Class({
