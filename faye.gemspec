@@ -1,10 +1,10 @@
 Gem::Specification.new do |s|
   s.name              = 'faye'
-  s.version           = '1.1.2'
+  s.version           = '1.2.3'
   s.summary           = 'Simple pub/sub messaging for the web'
   s.author            = 'James Coglan'
   s.email             = 'jcoglan@gmail.com'
-  s.homepage          = 'http://faye.jcoglan.com'
+  s.homepage          = 'https://faye.jcoglan.com'
   s.license           = 'MIT'
 
   s.extra_rdoc_files  = %w[README.md]
@@ -13,10 +13,9 @@ Gem::Specification.new do |s|
 
   # It is important that the JavaScript files listed here are not removed: they
   # contain the browser client and the gem should fail to build without them.
-  # You should generate them by running `npm run-script build` in the project
-  # root.
+  # You should generate them by running `make` in the project root.
   s.files = %w[CHANGELOG.md README.md] +
-            %w[.js -min.js -min.js.map].map { |ext| "lib/faye-browser#{ext}" } +
+            %w[.js .js.map -min.js -min.js.map].map { |ext| "build/client/faye-browser#{ext}" } +
             Dir.glob('lib/**/*.rb')
   
   s.add_dependency 'cookiejar', '>= 0.3.0'

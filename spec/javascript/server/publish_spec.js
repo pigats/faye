@@ -1,8 +1,13 @@
-JS.ENV.Server.PublishSpec = JS.Test.describe("Server publish", function() { with(this) {
+var jstest = require("jstest").Test
+
+var Engine = require("../../../src/engines/proxy"),
+    Server = require("../../../src/protocol/server")
+
+jstest.describe("Server publish", function() { with(this) {
   before(function() { with(this) {
     this.engine = {}
-    stub(Faye.Engine, "get").returns(engine)
-    this.server = new Faye.Server()
+    stub(Engine, "get").returns(engine)
+    this.server = new Server()
 
     this.message = {channel: "/some/channel",     data: "publish"}
   }})
@@ -41,6 +46,29 @@ JS.ENV.Server.PublishSpec = JS.Test.describe("Server publish", function() { with
             { channel:    "channel",
               successful: false,
               error:      "405:channel:Invalid channel"
+            }
+          ], response)
+        })
+      }})
+    }})
+
+    describe("with no data", function() { with(this) {
+      before(function() { with(this) {
+        delete message.data
+      }})
+
+      it("does not tell the engine to publish the message", function() { with(this) {
+        expect(engine, "publish").exactly(0)
+        server.process(message, false, function() {})
+      }})
+
+      it("returns an unsuccessful response", function() { with(this) {
+        stub(engine, "publish")
+        server.process(message, false, function(response) {
+          assertEqual([
+            { channel:    "/some/channel",
+              successful: false,
+              error:      "402:data:Missing required parameter"
             }
           ], response)
         })

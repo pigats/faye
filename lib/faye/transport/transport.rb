@@ -5,8 +5,7 @@ module Faye
     include Publisher
     include Timeouts
 
-    DEFAULT_PORTS    = {'http' => 80, 'https' => 433, 'ws' => 80, 'wss' => 443}
-    SECURE_PROTOCOLS = ['https', 'wss']
+    DEFAULT_PORTS = {'http' => 80, 'https' => 433, 'ws' => 80, 'wss' => 443}
 
     attr_reader :endpoint
 
@@ -17,11 +16,9 @@ module Faye
       @outbox     = []
       @proxy      = @dispatcher.proxy.dup
 
-      scheme = @endpoint.respond_to?(:scheme) ? @endpoint.scheme : nil
-
-      @proxy[:origin] ||= SECURE_PROTOCOLS.include?(scheme) ?
-                          (ENV['HTTPS_PROXY'] || ENV['https_proxy']) :
-                          (ENV['HTTP_PROXY']  || ENV['http_proxy'])
+      @proxy[:origin] ||= @endpoint.respond_to?(:find_proxy) ?
+                          @endpoint.find_proxy :
+                          nil
     end
 
     def batching?
@@ -49,23 +46,31 @@ module Faye
       end
 
       @outbox << message
-      @promise ||= EventMachine::DefaultDeferrable.new
       flush_large_batch
 
       if message['channel'] == Channel::HANDSHAKE
-        add_timeout(:publish, 0.01) { flush }
-        return @promise
+        return publish(0.01)
       end
 
       if message['channel'] == Channel::CONNECT
         @connection_message = message
       end
 
-      add_timeout(:publish, Engine::MAX_DELAY) { flush }
-      @promise
+      publish(Engine::MAX_DELAY)
     end
 
   private
+
+    def publish(delay)
+      @promise ||= EventMachine::DefaultDeferrable.new
+
+      add_timeout(:publish, delay) do
+        flush
+        @promise = nil
+      end
+
+      @promise
+    end
 
     def flush
       remove_timeout(:publish)
@@ -75,7 +80,6 @@ module Faye
       end
 
       @promise.succeed(request(@outbox))
-      @promise = nil
 
       @connection_message = nil
       @outbox = []
@@ -85,7 +89,10 @@ module Faye
       string = encode(@outbox)
       return if string.size < @dispatcher.max_request_size
       last = @outbox.pop
+
+      @promise ||= EventMachine::DefaultDeferrable.new
       flush
+
       @outbox.push(last) if last
     end
 
