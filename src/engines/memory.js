@@ -4,7 +4,8 @@ var copyObject = require('../util/copy_object'),
     extend     = require('../util/extend'),
     Namespace  = require('../util/namespace'),
     Set        = require('../util/set'),
-    Timeouts   = require('../mixins/timeouts');
+    Timeouts   = require('../mixins/timeouts'),
+    Channel    = require('../protocol/channel');
 
 var Memory = function(server, options) {
   this._server    = server;
@@ -121,12 +122,12 @@ Memory.prototype = {
 
       // if it is a service channel, strip the uid from the end of the channel before sending the message to the client
       // /service/channel/uid => /service/channel
-      var messageToSend = Faye.copyObject(message);                      
-      if(Faye.Channel.isService(message.channel)) {                      
-        messageToSend.channel = message.channel.replace(/\/\w+$/, '');   
-      }                                                                  
-                                                                          
-      messages[clientId].push(Faye.copyObject(messageToSend));
+      var messageToSend = copyObject(message);
+      if(Channel.isService(message.channel)) {
+        messageToSend.channel = message.channel.replace(/\/\w+$/, '');
+      }
+
+      messages[clientId].push(copyObject(messageToSend));
       this.emptyQueue(clientId);
     }, this);
 
