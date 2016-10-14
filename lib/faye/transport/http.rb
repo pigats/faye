@@ -48,10 +48,13 @@ module Faye
 
     def create_request(params)
       version = EventMachine::HttpRequest::VERSION.split('.')[0].to_i
-      options = {:inactivity_timeout => 0}
+      options = {
+        :inactivity_timeout => 0,
+        :tls => {:sni_hostname => @endpoint.hostname}
+      }
 
       if @proxy[:origin]
-        uri = URI.parse(@proxy[:origin])
+        uri = URI(@proxy[:origin])
         options[:proxy] = {:host => uri.host, :port => uri.port}
         if uri.user
           options[:proxy][:authorization] = [uri.user, uri.password]

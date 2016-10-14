@@ -14,7 +14,7 @@ require 'time'
 require 'uri'
 
 module Faye
-  VERSION = '1.1.2'
+  VERSION = '1.2.3'
 
   ROOT = File.expand_path(File.dirname(__FILE__))
 
@@ -79,10 +79,6 @@ module Faye
     else
       object
     end
-  end
-
-  def self.parse_url(url)
-    String === url ? URI.parse(url) : url
   end
 
   def self.to_json(value)

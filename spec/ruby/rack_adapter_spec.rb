@@ -62,6 +62,13 @@ describe Faye::RackAdapter do
           content_type.should == "text/plain; charset=utf-8"
         end
 
+        it "returns a 400 response if primitive JSON is given" do
+          server.should_not_receive(:process)
+          post "/bayeux", "message=1"
+          status.should == 400
+          content_type.should == "text/plain; charset=utf-8"
+        end
+
         it "returns a 404 if the path is not matched" do
           server.should_not_receive(:process)
           post "/blaf", 'message=%5B%5D'
@@ -227,15 +234,6 @@ describe Faye::RackAdapter do
     describe "missing message" do
       before { params.delete(:message) }
       it_should_behave_like "bad GET request"
-    end
-
-    describe "for the client script" do
-      it "returns the client script" do
-        get "/bayeux.js"
-        status.should == 200
-        content_type.should == "text/javascript; charset=utf-8"
-        body.should =~ /function\(\)\{/
-      end
     end
   end
 end

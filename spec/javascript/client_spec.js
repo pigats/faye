@@ -1,14 +1,25 @@
-JS.ENV.ClientSpec = JS.Test.describe("Client", function() { with(this) {
+var jstest = require("jstest").Test
+
+var asap         = require("asap"),
+    Client       = require("../../src/protocol/client"),
+    Dispatcher   = require("../../src/protocol/dispatcher"),
+    Publisher    = require("../../src/mixins/publisher"),
+    Subscription = require("../../src/protocol/subscription"),
+    extend_      = require("../../src/util/extend"),
+    Promise      = require("../../src/util/promise"),
+    URI          = require("../../src/util/uri")
+
+jstest.describe("Client", function() { with(this) {
   before(function() { with(this) {
-    var uri = Faye.URI.parse("http://localhost/bayeux")
+    var uri = URI.parse("http://localhost/bayeux")
 
     this.dispatcher = {endpoint: uri, connectionType: "fake-transport", retry: 5}
     stub(dispatcher, "getConnectionTypes").returns(["fake-transport", "another-transport"])
     stub(dispatcher, "selectTransport")
     stub(dispatcher, "sendMessage")
 
-    Faye.extend(dispatcher, Faye.Publisher)
-    stub("new", Faye, "Dispatcher").returns(dispatcher)
+    extend_(dispatcher, Publisher)
+    stub(Dispatcher, "create").returns(dispatcher)
 
     stub("setTimeout")
   }})
@@ -21,7 +32,7 @@ JS.ENV.ClientSpec = JS.Test.describe("Client", function() { with(this) {
   }})
 
   define("createClient", function() { with(this) {
-    this.client = new Faye.Client("http://localhost/")
+    this.client = new Client("http://localhost/")
   }})
 
   define("createConnectedClient", function() { with(this) {
@@ -48,7 +59,7 @@ JS.ENV.ClientSpec = JS.Test.describe("Client", function() { with(this) {
 
   describe("initialize", function() { with(this) {
     it("puts the client in the UNCONNECTED state", function() { with(this) {
-      var client = new Faye.Client("http://localhost/")
+      var client = new Client("http://localhost/")
       assertEqual( client.UNCONNECTED, client._state )
     }})
   }})
@@ -221,7 +232,7 @@ JS.ENV.ClientSpec = JS.Test.describe("Client", function() { with(this) {
           id:             instanceOf("string")
         }, 72, {})
         client.connect()
-        Faye.Promise.defer(resume)
+        asap(resume)
       }})
     }})
 
@@ -326,7 +337,7 @@ JS.ENV.ClientSpec = JS.Test.describe("Client", function() { with(this) {
         it("returns an array of subscriptions", function() { with(this) {
           var subs = client.subscribe(["/foo", "/bar"])
           assertEqual( 2, subs.length )
-          assertKindOf( Faye.Subscription, subs[0] )
+          assertKindOf( Subscription, subs[0] )
         }})
       }})
 
@@ -344,6 +355,16 @@ JS.ENV.ClientSpec = JS.Test.describe("Client", function() { with(this) {
             resume(function() {
               client._receiveMessage({channel: "/foo/bar", data: "hi"})
               assertEqual( "hi", message )
+            })
+          })
+        }})
+
+        it("yields the channel when requested", function(resume) { with(this) {
+          var message
+          client.subscribe("/foo/*").withChannel(function(c, m) { message = [c, m] }).then(function() {
+            resume(function() {
+              client._receiveMessage({channel: "/foo/bar", data: "hi"})
+              assertEqual( ["/foo/bar", "hi"], message )
             })
           })
         }})
@@ -498,9 +519,9 @@ JS.ENV.ClientSpec = JS.Test.describe("Client", function() { with(this) {
 
     describe("with a single subscription", function() { with(this) {
       before(function(resume) { with(this) {
-        this.message  = null
-        this.listener = function(m) { message = m }
-        subscribe(client, "/foo/*", listener).then(resume)
+        this.message = null
+        this.subscription = subscribe(client, "/foo/*", function(m) { message = m })
+        this.subscription.then(resume)
       }})
 
       it("sends an unsubscribe message to the server", function(resume) { with(this) {
@@ -511,7 +532,7 @@ JS.ENV.ClientSpec = JS.Test.describe("Client", function() { with(this) {
 
       it("removes the listener from the channel", function() { with(this) {
         client._receiveMessage({channel: "/foo/bar", data: "first"})
-        client.unsubscribe("/foo/*", listener)
+        client.unsubscribe("/foo/*", subscription)
         client._receiveMessage({channel: "/foo/bar", data: "second"})
         assertEqual( "first", message )
       }})
@@ -520,12 +541,10 @@ JS.ENV.ClientSpec = JS.Test.describe("Client", function() { with(this) {
     describe("with multiple subscriptions to the same channel", function() { with(this) {
       before(function(resume) { with(this) {
         this.messages = []
-        this.hey = function(m) { messages.push("hey " + m.text) }
-        this.bye = function(m) { messages.push("bye " + m.text) }
+        this.hey = subscribe(client, "/foo/*", function(m) { messages.push("hey " + m.text) })
+        this.bye = subscribe(client, "/foo/*", function(m) { messages.push("bye " + m.text) })
 
-        subscribe(client, "/foo/*", hey).then(function() {
-          return subscribe(client, "/foo/*", bye)
-        }).then(resume)
+        hey.then(function() { bye.then(resume) })
       }})
 
       it("removes one of the listeners from the channel", function() { with(this) {

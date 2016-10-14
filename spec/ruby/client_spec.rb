@@ -2,7 +2,7 @@ require "spec_helper"
 
 describe Faye::Client do
   let :dispatcher do
-    uri = Faye.parse_url("http://localhost/bayeux")
+    uri = URI("http://localhost/bayeux")
 
     dispatcher = double(:dispatcher,
                         :endpoint         => uri,
@@ -354,6 +354,13 @@ describe Faye::Client do
           @message.should == "hi"
         end
 
+        it "yields the channel when requested" do
+          @message = nil
+          @client.subscribe("/foo/*").with_channel { |c, m| @message = [c, m] }
+          @client.__send__(:receive_message, "channel" => "/foo/bar", "data" => "hi")
+          @message.should == ["/foo/bar", "hi"]
+        end
+
         it "does not call the listener for non-matching channels" do
           @message = nil
           @client.subscribe("/foo/*") { |m| @message = m }
@@ -508,8 +515,7 @@ describe Faye::Client do
     describe "with a single subscription" do
       before do
         @message = nil
-        @listener = lambda { |m| @message = m }
-        subscribe @client, "/foo/*", @listener
+        @subscription = subscribe @client, "/foo/*", lambda { |m| @message = m }
       end
 
       it "sends an unsubscribe message to the server" do
@@ -519,7 +525,7 @@ describe Faye::Client do
 
       it "removes the listener from the channel" do
         @client.__send__(:receive_message, "channel" => "/foo/bar", "data" => "first")
-        @client.unsubscribe("/foo/*", &@listener)
+        @client.unsubscribe("/foo/*", @subscription)
         @client.__send__(:receive_message, "channel" => "/foo/bar", "data" => "second")
         @message.should == "first"
       end
@@ -528,28 +534,26 @@ describe Faye::Client do
     describe "with multiple subscriptions to the same channel" do
       before do
         @messages = []
-        @hey = lambda { |m| @messages << ("hey " + m["text"]) }
-        @bye = lambda { |m| @messages << ("bye " + m["text"]) }
-        subscribe @client, "/foo/*", @hey
-        subscribe @client, "/foo/*", @bye
+        @hey = subscribe @client, "/foo/*", lambda { |m| @messages << ("hey " + m["text"]) }
+        @bye = subscribe @client, "/foo/*", lambda { |m| @messages << ("bye " + m["text"]) }
       end
 
       it "removes one of the listeners from the channel" do
         @client.__send__(:receive_message, "channel" => "/foo/bar", "data" => {"text" => "you"})
-        @client.unsubscribe("/foo/*", &@hey)
+        @client.unsubscribe("/foo/*", @hey)
         @client.__send__(:receive_message, "channel" => "/foo/bar", "data" => {"text" => "you"})
         @messages.should == ["hey you", "bye you", "bye you"]
       end
 
       it "does not send an unsubscribe message if one listener is removed" do
         dispatcher.should_not_receive(:send_message).with(@unsubscribe_message, 72, {})
-        @client.unsubscribe("/foo/*", &@bye)
+        @client.unsubscribe("/foo/*", @bye)
       end
 
       it "sends an unsubscribe message if each listener is removed" do
         dispatcher.should_receive(:send_message).with(@unsubscribe_message, 72, {})
-        @client.unsubscribe("/foo/*", &@bye)
-        @client.unsubscribe("/foo/*", &@hey)
+        @client.unsubscribe("/foo/*", @bye)
+        @client.unsubscribe("/foo/*", @hey)
       end
 
       it "sends an unsubscribe message if all listeners are removed" do

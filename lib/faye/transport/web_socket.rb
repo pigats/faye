@@ -46,7 +46,7 @@ module Faye
       promise = Request.new
 
       callback do |socket|
-        next unless socket
+        next unless socket and socket.ready_state == 1
         socket.send(Faye.to_json(messages))
         promise.succeed(socket)
       end
@@ -68,8 +68,14 @@ module Faye
       url.scheme = PROTOCOLS[url.scheme]
       headers['Cookie'] = cookie unless cookie == ''
 
-      options = {:extensions => extensions, :headers => headers, :proxy => @proxy}
-      socket  = Faye::WebSocket::Client.new(url.to_s, [], options)
+      options = {
+        :extensions => extensions,
+        :headers    => headers,
+        :proxy      => @proxy,
+        :tls        => {:sni_hostname => url.hostname}
+      }
+
+      socket = Faye::WebSocket::Client.new(url.to_s, [], options)
 
       socket.onopen = lambda do |*args|
         store_cookies(socket.headers['Set-Cookie'])
@@ -91,22 +97,20 @@ module Faye
         @socket = nil
         @state = UNCONNECTED
         remove_timeout(:ping)
-        set_deferred_status(:unknown)
 
         pending  = @pending ? @pending.to_a : []
         @pending = nil
 
-        if was_connected
-          handle_error(pending, true)
-        elsif @ever_connected
-          handle_error(pending)
+        if was_connected or @ever_connected
+          set_deferred_status(:unknown)
+          handle_error(pending, was_connected)
         else
           set_deferred_status(:failed)
         end
       end
 
       socket.onmessage = lambda do |event|
-        replies = MultiJson.load(event.data)
+        replies = MultiJson.load(event.data) rescue nil
         next if replies.nil?
         replies = [replies].flatten
 
@@ -127,7 +131,7 @@ module Faye
   private
 
     def ping
-      return unless @socket
+      return unless @socket and @socket.ready_state == 1
       @socket.send('[]')
       add_timeout(:ping, @dispatcher.timeout / 2) { ping }
     end

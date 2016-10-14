@@ -1,8 +1,13 @@
-JS.ENV.ServerSpec = JS.Test.describe("Server", function() { with(this) {
+var jstest = require("jstest").Test
+
+var Engine = require("../../src/engines/proxy"),
+    Server = require("../../src/protocol/server")
+
+jstest.describe("Server", function() { with(this) {
   before(function() { with(this) {
     this.engine = {}
-    stub(Faye.Engine, "get").returns(engine)
-    this.server = new Faye.Server()
+    stub(Engine, "get").returns(engine)
+    this.server = new Server()
   }})
 
   describe("#process", function() { with(this) {
@@ -29,11 +34,11 @@ JS.ENV.ServerSpec = JS.Test.describe("Server", function() { with(this) {
       server.process([{}, {channel: "invalid"}], false, function(r) { response = r})
       assertEqual([
         { successful: false,
-          error:      "405::Invalid channel"
+          error:      "402:data:Missing required parameter"
         },
         { channel:    "invalid",
           successful: false,
-          error:      "405:invalid:Invalid channel"
+          error:      "402:data:Missing required parameter"
         }
       ], response)
     }})
